@@ -7,6 +7,7 @@ Runs on macOS and Windows.
 """
 
 import json
+import os
 import platform
 import requests
 from datetime import datetime
@@ -400,12 +401,13 @@ def _manage_task_scheduler(install: bool):
     if result.returncode != 0:
         raise SystemExit(f"schtasks failed:\n{result.stderr}")
 
-    # At logon
+    # At logon — run as current user only (no admin needed)
     cmd_logon = [
         "schtasks", "/Create", "/F",
         "/TN", task_logon,
         "/TR", tr,
         "/SC", "ONLOGON",
+        "/RU", os.environ.get("USERNAME", ""),
     ]
     result = subprocess.run(cmd_logon, capture_output=True, text=True)
     if result.returncode != 0:
