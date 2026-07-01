@@ -22,7 +22,8 @@ SESSION_DIR  = Path.home() / ".sap_session"
 COOKIES_FILE = SESSION_DIR / "me_sap_cookies.json"
 STORAGE_FILE = SESSION_DIR / "me_sap_storage.json"
 
-HERE         = Path(__file__).parent.resolve()
+import sys as _sys
+HERE = Path(_sys.executable).parent.resolve() if getattr(_sys, "frozen", False) else Path(__file__).parent.resolve()
 CONFIG_FILE  = HERE / "config.json"
 
 IS_WINDOWS = platform.system() == "Windows"
