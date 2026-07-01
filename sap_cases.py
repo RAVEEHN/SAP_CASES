@@ -370,34 +370,47 @@ def _manage_cron(install: bool):
 
 def _manage_task_scheduler(install: bool):
     import subprocess, sys
-    task_name = "SAPCasesErgon"
-    script    = str(HERE / "sap_cases.py")
-    binary    = str(Path(sys.executable))
-    log       = HERE / "sap_cases.log"
+    task_hourly = "SAPCasesErgon"
+    task_logon  = "SAPCasesErgonLogon"
+    script      = str(HERE / "sap_cases.py")
+    binary      = str(Path(sys.executable))
+    log         = HERE / "sap_cases.log"
+    tr          = f'"{binary}" "{script}" --customer {DAILY_CUSTOMER} --email >> "{log}" 2>&1'
 
     if not install:
-        subprocess.run(["schtasks", "/Delete", "/TN", task_name, "/F"],
-                       capture_output=True)
-        print("Task removed.")
+        for task in (task_hourly, task_logon):
+            subprocess.run(["schtasks", "/Delete", "/TN", task, "/F"], capture_output=True)
+        print("Tasks removed.")
         return
 
-    # Run at logon, then every hour between 08:00-18:00 on weekdays
-    cmd = [
+    # Hourly 08:00-18:00
+    cmd_hourly = [
         "schtasks", "/Create", "/F",
-        "/TN", task_name,
-        "/TR", f'"{binary}" "{script}" --customer {DAILY_CUSTOMER} --email >> "{log}" 2>&1',
+        "/TN", task_hourly,
+        "/TR", tr,
         "/SC", "HOURLY",
         "/MO", "1",
         "/ST", "08:00",
         "/ET", "18:00",
-        "/K",                   # stop at end time
-        "/RI", "60",
+        "/K",
         "/SD", datetime.now().strftime("%m/%d/%Y"),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd_hourly, capture_output=True, text=True)
     if result.returncode != 0:
         raise SystemExit(f"schtasks failed:\n{result.stderr}")
-    print(f"Registered Task Scheduler job '{task_name}' — runs hourly 08:00-18:00.")
+
+    # At logon
+    cmd_logon = [
+        "schtasks", "/Create", "/F",
+        "/TN", task_logon,
+        "/TR", tr,
+        "/SC", "ONLOGON",
+    ]
+    result = subprocess.run(cmd_logon, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit(f"schtasks logon task failed:\n{result.stderr}")
+
+    print(f"Registered Task Scheduler jobs — runs at logon and hourly 08:00-18:00.")
     print(f"Logs: {log}")
 
 
