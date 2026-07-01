@@ -1,0 +1,31 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyinstaller playwright requests openpyxl pywin32
+
+      - name: Install Chromium
+        run: playwright install chromium
+
+      - name: Build EXE
+        run: pyinstaller --onefile --name sap-cases --clean sap_cases.py
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sap-cases-windows
+          path: dist/sap-cases.exe
