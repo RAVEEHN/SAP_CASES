@@ -21,9 +21,6 @@ jobs:
       - name: Install dependencies
         run: pip install pyinstaller playwright requests openpyxl pywin32
 
-      - name: Install Chromium
-        run: playwright install chromium
-
       - name: Build EXE
         run: pyinstaller --onefile --name sap-cases --clean sap_cases.py
 

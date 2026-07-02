@@ -94,11 +94,31 @@ def _dismiss_cert_picker():
         print(f"  Could not dismiss cert picker: {e}")
 
 
+def _find_system_browser() -> str | None:
+    """Return path to installed Edge or Chrome on Windows, None otherwise."""
+    candidates = [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ]
+    for p in candidates:
+        if Path(p).exists():
+            return p
+    return None
+
+
 def _login_headful(playwright):
     import threading, time
     print("\nOpening browser for me.sap.com login...")
     print("Complete SSO login — browser closes automatically once done.\n")
-    browser = playwright.chromium.launch(headless=False)
+
+    system_browser = _find_system_browser() if IS_WINDOWS else None
+    if system_browser:
+        browser = playwright.chromium.launch(headless=False, executable_path=system_browser)
+    else:
+        browser = playwright.chromium.launch(headless=False)
+
     context = browser.new_context()
     page    = context.new_page()
     threading.Thread(target=_dismiss_cert_picker, daemon=True).start()
