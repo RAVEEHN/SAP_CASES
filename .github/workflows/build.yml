@@ -22,13 +22,13 @@ jobs:
         run: pip install pyinstaller playwright requests openpyxl pywin32
 
       - name: Build EXE
-        run: pyinstaller --onefile --name sap-cases --clean sap_cases.py
+        run: pyinstaller --onefile --name sap_cases --clean sap_cases.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: sap-cases-windows
-          path: dist/sap-cases.exe
+          path: dist/sap_cases.exe
 
   build-macos:
     runs-on: macos-latest
@@ -74,7 +74,7 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          mv dist/windows/sap-cases.exe dist/sap-cases-windows.exe
+          mv dist/windows/sap_cases.exe dist/sap-cases-windows.exe
           mv dist/macos/sap-cases dist/sap-cases-macos
 
       - name: Delete existing release
