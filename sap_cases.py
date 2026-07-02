@@ -395,20 +395,21 @@ def _manage_cron(install: bool):
 
 def _manage_task_scheduler(install: bool):
     import subprocess, sys
-    task_hourly = "SAPCasesErgon"
-    task_logon  = "SAPCasesErgonLogon"
-    script      = str(HERE / "sap_cases.py")
-    binary      = str(Path(sys.executable))
-    log         = HERE / "sap_cases.log"
-    tr          = f'"{binary}" --scheduled >> "{log}" 2>&1'
+    task_hourly   = "SAPCasesErgon"
+    log           = HERE / "sap_cases.log"
+    binary        = str(Path(sys.executable))
+    tr            = f'"{binary}" --scheduled'
+    startup_dir   = Path(os.environ.get("APPDATA", "")) / "Microsoft/Windows/Start Menu/Programs/Startup"
+    startup_vbs   = startup_dir / "sap-cases-startup.vbs"
 
     if not install:
-        for task in (task_hourly, task_logon):
-            subprocess.run(["schtasks", "/Delete", "/TN", task, "/F"], capture_output=True)
+        subprocess.run(["schtasks", "/Delete", "/TN", task_hourly, "/F"], capture_output=True)
+        if startup_vbs.exists():
+            startup_vbs.unlink()
         print("Tasks removed.")
         return
 
-    # Hourly 08:00-18:00
+    # Hourly 08:00-18:00 via Task Scheduler
     cmd_hourly = [
         "schtasks", "/Create", "/F",
         "/TN", task_hourly,
@@ -424,19 +425,16 @@ def _manage_task_scheduler(install: bool):
     if result.returncode != 0:
         raise SystemExit(f"schtasks failed:\n{result.stderr}")
 
-    # At logon — run as current user only (no admin needed)
-    cmd_logon = [
-        "schtasks", "/Create", "/F",
-        "/TN", task_logon,
-        "/TR", tr,
-        "/SC", "ONLOGON",
-        "/RU", os.environ.get("USERNAME", ""),
-    ]
-    result = subprocess.run(cmd_logon, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise SystemExit(f"schtasks logon task failed:\n{result.stderr}")
+    # At logon via Startup folder (no admin needed)
+    # VBScript wrapper hides the console window
+    vbs = (
+        f'Set WshShell = CreateObject("WScript.Shell")\n'
+        f'WshShell.Run "{binary} --scheduled", 0, False\n'
+    )
+    startup_vbs.write_text(vbs)
 
-    print(f"Registered Task Scheduler jobs — runs at logon and hourly 08:00-18:00.")
+    print(f"Registered — runs at logon (Startup folder) and hourly 08:00-18:00 (Task Scheduler).")
+    print(f"Startup script: {startup_vbs}")
     print(f"Logs: {log}")
 
 
