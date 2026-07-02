@@ -191,6 +191,32 @@ def fetch_csrf(s: requests.Session) -> str:
     return token or ""
 
 
+# ── Import trigger ────────────────────────────────────────────────────────────
+
+def trigger_import(s: requests.Session, customer_number: str):
+    import time
+    print("  Triggering data refresh on me.sap.com...", flush=True)
+    csrf_resp = s.get(
+        f"{BASE}/backend/raw/esrc/ReportingDataVerticle/odata/agent/Features",
+        params={"$top": "1"},
+        headers={"x-csrf-token": "Fetch"},
+    )
+    csrf_token = csrf_resp.headers.get("x-csrf-token") or csrf_resp.headers.get("X-CSRF-Token", "")
+    headers = {"odata-version": "4.0", "odata-maxversion": "4.0"}
+    if csrf_token:
+        headers["x-csrf-token"] = csrf_token
+    r = s.post(
+        f"{BASE}/backend/raw/esrc/ReportingDataVerticle/odata/agent/importCustomers",
+        json={"erpNos": [customer_number]},
+        headers=headers,
+    )
+    if r.status_code in (200, 201, 204):
+        print("  Data refresh triggered -- waiting 2 minutes for sync...", flush=True)
+        time.sleep(120)
+    else:
+        print(f"  Data refresh failed (status {r.status_code}) -- continuing with existing data.")
+
+
 # ── Fetch cases ───────────────────────────────────────────────────────────────
 
 def _encode_customer(customer_number: str) -> str:
@@ -533,6 +559,7 @@ def main(force_relogin: bool = False, customer_number: str = "", send_email: boo
 
     ensure_session(force_relogin=force_relogin)
     s     = get_session()
+    trigger_import(s, customer_number)
     cases = fetch_all_cases(s, customer_number)
 
     if cases is None:
