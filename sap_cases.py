@@ -397,7 +397,7 @@ def _manage_task_scheduler(install: bool):
     script      = str(HERE / "sap_cases.py")
     binary      = str(Path(sys.executable))
     log         = HERE / "sap_cases.log"
-    tr          = f'"{binary}" "{script}" --customer {DAILY_CUSTOMER} --email >> "{log}" 2>&1'
+    tr          = f'"{binary}" --scheduled >> "{log}" 2>&1'
 
     if not install:
         for task in (task_hourly, task_logon):
@@ -468,7 +468,7 @@ def _manage_launchd(install: bool):
     wakeup_content = (
         f"#!/bin/sh\n"
         f"pgrep -u \"$USER\" -x Finder > /dev/null 2>&1 || exit 0\n"
-        f"{binary} {script} --customer {DAILY_CUSTOMER} --email >> {log} 2>&1 &\n"
+        f"{binary} {script} --scheduled >> {log} 2>&1 &\n"
     )
     WAKEUP_SCRIPT.write_text(wakeup_content)
     WAKEUP_SCRIPT.chmod(WAKEUP_SCRIPT.stat().st_mode | stat.S_IXUSR)
@@ -522,11 +522,11 @@ def _mark_ran_today():
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main(force_relogin: bool = False, customer_number: str = "", send_email: bool = False):
+def main(force_relogin: bool = False, customer_number: str = "", send_email: bool = False, scheduled: bool = False):
     customer_number = customer_number.zfill(10)
     print(f"\n-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} -- customer: {customer_number} --")
 
-    if send_email and _already_ran_today():
+    if scheduled and send_email and _already_ran_today():
         print("  Already ran today -- skipping.")
         return
 
@@ -559,9 +559,10 @@ def main(force_relogin: bool = False, customer_number: str = "", send_email: boo
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Download SAP support cases to Excel")
-    parser.add_argument("--relogin",  action="store_true", help="Force fresh browser login")
-    parser.add_argument("--customer", default="", help="Customer number (overrides config.json)")
-    parser.add_argument("--email",    action="store_true", help="Filter and email open cases via Outlook")
+    parser.add_argument("--relogin",   action="store_true", help="Force fresh browser login")
+    parser.add_argument("--customer",  default="", help="Customer number (overrides config.json)")
+    parser.add_argument("--email",     action="store_true", help="Filter and email open cases via Outlook")
+    parser.add_argument("--scheduled", action="store_true", help="Run from scheduler — skips if already ran today")
 
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("setup-cron",  help=f"Register scheduled job for customer {DAILY_CUSTOMER}")
@@ -574,6 +575,5 @@ if __name__ == "__main__":
     elif args.cmd == "remove-cron":
         _manage_cron(install=False)
     else:
-        # Double-click mode: use config.json values, no arguments needed
         customer = args.customer or DAILY_CUSTOMER
-        main(force_relogin=args.relogin, customer_number=customer, send_email=True)
+        main(force_relogin=args.relogin, customer_number=customer, send_email=True, scheduled=args.scheduled)
