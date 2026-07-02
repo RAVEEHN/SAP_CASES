@@ -560,7 +560,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Download SAP support cases to Excel")
     parser.add_argument("--relogin",  action="store_true", help="Force fresh browser login")
-    parser.add_argument("--customer", default="", help="Customer number e.g. 450162")
+    parser.add_argument("--customer", default="", help="Customer number (overrides config.json)")
     parser.add_argument("--email",    action="store_true", help="Filter and email open cases via Outlook")
 
     sub = parser.add_subparsers(dest="cmd")
@@ -574,6 +574,6 @@ if __name__ == "__main__":
     elif args.cmd == "remove-cron":
         _manage_cron(install=False)
     else:
-        if not args.customer:
-            parser.error("--customer is required")
-        main(force_relogin=args.relogin, customer_number=args.customer, send_email=args.email)
+        # Double-click mode: use config.json values, no arguments needed
+        customer = args.customer or DAILY_CUSTOMER
+        main(force_relogin=args.relogin, customer_number=customer, send_email=True)
