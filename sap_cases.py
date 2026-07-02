@@ -46,6 +46,7 @@ _cfg           = _load_config()
 EMAIL_TO       = _cfg["email_to"]
 DAILY_CUSTOMER = _cfg["customer_number"]
 SYSTEM_IDS     = set(_cfg.get("system_ids", []))  # empty = no filter
+PRIORITIES     = set(_cfg.get("priorities", ["Very High", "High", "Medium", "Low"]))
 
 GROUPBY_FIELDS = [
     "AGE", "CASE_ID", "CASE_NUMBER", "CASE_URL", "CHANGE_DATE",
@@ -296,6 +297,8 @@ def filter_cases(cases: list[dict], open_only: bool = True) -> list[dict]:
             continue
         if SYSTEM_IDS and c.get("SYSTEM_ID") not in SYSTEM_IDS:
             continue
+        if c.get("PRIO_TXT") not in PRIORITIES:
+            continue
         result.append(c)
     return result
 
@@ -370,7 +373,7 @@ end tell
 
 
 def send_email_outlook(cases: list[dict], customer_number: str):
-    subject   = f"Ergon Open Cases - {datetime.now().strftime('%Y-%m-%d')}"
+    subject   = f"Open Cases - {datetime.now().strftime('%Y-%m-%d')}"
     html_body = _build_html_table(cases, customer_number)
 
     if IS_WINDOWS:
