@@ -211,8 +211,8 @@ def trigger_import(s: requests.Session, customer_number: str):
         headers=headers,
     )
     if r.status_code in (200, 201, 204):
-        print("  Data refresh triggered -- waiting 2 minutes for sync...", flush=True)
-        time.sleep(120)
+        print("  Data refresh triggered -- waiting 1 minute for sync...", flush=True)
+        time.sleep(60)
     else:
         print(f"  Data refresh failed (status {r.status_code}) -- continuing with existing data.")
 
