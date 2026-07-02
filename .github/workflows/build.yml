@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Executables
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +24,59 @@ jobs:
       - name: Build EXE
         run: pyinstaller --onefile --name sap-cases --clean sap_cases.py
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sap-cases-windows
+          path: dist/sap-cases.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyinstaller playwright requests openpyxl pyautogui
+
+      - name: Install Chromium
+        run: playwright install chromium
+
+      - name: Build binary
+        run: pyinstaller --onefile --name sap-cases --clean sap_cases.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sap-cases-macos
+          path: dist/sap-cases
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sap-cases-windows
+          path: dist/windows
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sap-cases-macos
+          path: dist/macos
+
+      - name: Rename artifacts
+        run: |
+          mv dist/windows/sap-cases.exe dist/sap-cases-windows.exe
+          mv dist/macos/sap-cases dist/sap-cases-macos
+
       - name: Delete existing release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -34,6 +87,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create latest dist/sap-cases.exe config.json `
-            --title "Latest Build" `
-            --notes "Download sap-cases.exe and config.json into the same folder. Edit config.json with your customer_number and email_to, then run: sap-cases.exe --customer YOUR_NUMBER --relogin"
+          gh release create latest \
+            dist/sap-cases-windows.exe \
+            dist/sap-cases-macos \
+            config.json \
+            --title "Latest Build" \
+            --notes "## Setup
+
+          **Windows:** Download \`sap-cases-windows.exe\` + \`config.json\` into the same folder. Edit \`config.json\`, then double-click the exe.
+
+          **macOS:** Download \`sap-cases-macos\` + \`config.json\` into the same folder. Open Terminal in that folder and run:
+          \`\`\`
+          chmod +x sap-cases-macos
+          ./sap-cases-macos --relogin
+          ./sap-cases-macos setup-cron
+          \`\`\`"
