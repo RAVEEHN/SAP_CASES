@@ -80,28 +80,23 @@ def _save_state(context):
     STORAGE_FILE.write_text(json.dumps(context.storage_state(), indent=2))
 
 
-def _dismiss_cert_picker():
-    try:
-        import pyautogui, time
-        time.sleep(3)
-        pyautogui.press("enter")
-        print("  Certificate picker 1 dismissed.")
-        time.sleep(2)
-        pyautogui.press("enter")
-        print("  Certificate picker 2 dismissed.")
-    except ImportError:
-        print("  pyautogui not installed — skipping cert picker automation.")
-    except Exception as e:
-        print(f"  Could not dismiss cert picker: {e}")
+def _edge_profile_path() -> str | None:
+    import platform
+    system = platform.system()
+    if system == "Darwin":
+        p = Path.home() / "Library/Application Support/Microsoft Edge/Default"
+    elif system == "Windows":
+        p = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft/Edge/User Data/Default"
+    else:
+        return None
+    return str(p) if p.exists() else None
 
 
-def _find_system_browser() -> str | None:
-    """Return path to installed Edge or Chrome on Windows, None otherwise."""
+def _find_edge() -> str | None:
     candidates = [
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     ]
     for p in candidates:
         if Path(p).exists():
@@ -110,19 +105,25 @@ def _find_system_browser() -> str | None:
 
 
 def _login_headful(playwright):
-    import threading, time
+    import time
     print("\nOpening browser for me.sap.com login...")
     print("Complete SSO login — browser closes automatically once done.\n")
 
-    system_browser = _find_system_browser() if IS_WINDOWS else None
-    if system_browser:
-        browser = playwright.chromium.launch(headless=False, executable_path=system_browser)
+    edge_profile = _edge_profile_path()
+    if edge_profile:
+        print(f"  Using existing Edge profile: {edge_profile}")
+        context = playwright.chromium.launch_persistent_context(
+            user_data_dir=edge_profile,
+            headless=False,
+            executable_path=_find_edge(),
+            channel="msedge",
+        )
+        page = context.pages[0] if context.pages else context.new_page()
     else:
         browser = playwright.chromium.launch(headless=False)
+        context = browser.new_context()
+        page    = context.new_page()
 
-    context = browser.new_context()
-    page    = context.new_page()
-    threading.Thread(target=_dismiss_cert_picker, daemon=True).start()
     page.goto(LANDING_URL)
     print("Waiting for login (up to 5 minutes)...")
     page.wait_for_selector(
@@ -131,8 +132,8 @@ def _login_headful(playwright):
     )
     time.sleep(3)
     _save_state(context)
-    browser.close()
-    print("Login successful — session saved.")
+    context.close()
+    print("Login successful -- session saved.")
 
 
 def _session_valid() -> bool:
